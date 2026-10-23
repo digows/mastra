@@ -294,8 +294,8 @@ minimumReleaseAgeExclude:
   - "@vitest/mocker@4.1.12"
   # Renovate security update: @storybook/addon-mcp@10.6.2
   - "@storybook/addon-mcp@10.6.2"
-  # Renovate security update: storybook@10.6.2
-  - storybook@10.6.2
+  # Renovate security update: storybook@10.6.2 || 9.1.21
+  - storybook@10.6.2 || 9.1.21
 trustPolicyExclude:
   # Vanta 2026-10-02: 7.4.6 fixes GHSA-g84c-rxfj-3j2c; earlier 7.4.x had trusted publisher
   # but 7.4.6 lacks that evidence (pnpm trustPolicy no-downgrade).
