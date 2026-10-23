@@ -1,5 +1,18 @@
 # @mastra/valkey
 
+## 0.2.8-alpha.0
+
+### Patch Changes
+
+- `ValkeyServerCache.listPushIndexed` accepts an optional TTL as its fourth argument. It can raise, never lower, the cache's `ttlSeconds` for both the list and its counter, so durable run logs can stay cached for 24 hours while a run waits on an approval. ([#27352](https://github.com/mastra-ai/mastra/pull/27352))
+
+  ```ts
+  await cache.listPushIndexed('pubsub:run', 'pubsub:run:counter', frame, 24 * 60 * 60 * 1000);
+  ```
+
+- Updated dependencies [[`2ded35c`](https://github.com/mastra-ai/mastra/commit/2ded35cb0c97b26f641a9eb9a5747d32164d45c9)]:
+  - @mastra/core@1.80.0-alpha.3
+
 ## 0.2.7
 
 ### Patch Changes

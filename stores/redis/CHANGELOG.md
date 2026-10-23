@@ -1,5 +1,20 @@
 # @mastra/redis
 
+## 1.4.12-alpha.0
+
+### Patch Changes
+
+- `RedisServerCache.listPushIndexed` accepts an optional TTL as its fourth argument. Durable run logs use it to stay cached for 24 hours, so an approval wait that outlives the cache's default TTL keeps its frames. ([#27352](https://github.com/mastra-ai/mastra/pull/27352))
+
+  Every append sets the list and its counter to `ttlSeconds` (default 300 seconds), or to the longer TTL passed in. A requested TTL never shortens `ttlSeconds`, and a cache configured with `ttlSeconds: 0` stays without expiry. The same TTL applies when scripting is unavailable or Redis Cluster rejects the script with `CROSSSLOT` and the cache falls back to `INCR` + `RPUSH`.
+
+  ```ts
+  await cache.listPushIndexed('pubsub:run', 'pubsub:run:counter', frame, 24 * 60 * 60 * 1000);
+  ```
+
+- Updated dependencies [[`2ded35c`](https://github.com/mastra-ai/mastra/commit/2ded35cb0c97b26f641a9eb9a5747d32164d45c9)]:
+  - @mastra/core@1.80.0-alpha.3
+
 ## 1.4.11
 
 ### Patch Changes

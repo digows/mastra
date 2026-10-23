@@ -1,5 +1,14 @@
 # @mastra/memory
 
+## 1.39.1-alpha.1
+
+### Patch Changes
+
+- Fixed working-memory data leaking into recalled history after raw message writes and partial message edits. Preserved observation markers and omitted content fields. Message edits now index the visible text the message keeps after the edit, so semantic recall no longer drops a message whose edit only touches working memory or metadata. Fixes [#27946](https://github.com/mastra-ai/mastra/issues/27946). ([#28149](https://github.com/mastra-ai/mastra/pull/28149))
+
+- Updated dependencies [[`2ded35c`](https://github.com/mastra-ai/mastra/commit/2ded35cb0c97b26f641a9eb9a5747d32164d45c9)]:
+  - @mastra/core@1.80.0-alpha.3
+
 ## 1.39.1-alpha.0
 
 ### Patch Changes

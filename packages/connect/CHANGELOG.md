@@ -1,5 +1,16 @@
 # @mastra/connect
 
+## 1.2.0-alpha.1
+
+### Patch Changes
+
+- Fixed provider generation to discover template aliases exposed as symlinks. ([#27314](https://github.com/mastra-ai/mastra/pull/27314))
+
+- Fixed delegated Microsoft Office provider generation to use the connected user's OneDrive and preserve supported generic proxy, typed request, and random UUID template patterns. ([#27314](https://github.com/mastra-ai/mastra/pull/27314))
+
+- Updated dependencies [[`2ded35c`](https://github.com/mastra-ai/mastra/commit/2ded35cb0c97b26f641a9eb9a5747d32164d45c9)]:
+  - @mastra/core@1.80.0-alpha.3
+
 ## 1.2.0-alpha.0
 
 ### Minor Changes

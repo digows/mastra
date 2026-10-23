@@ -1,5 +1,14 @@
 # @mastra/code-sdk
 
+## 1.15.1-alpha.3
+
+### Patch Changes
+
+- Updated dependencies [[`2ded35c`](https://github.com/mastra-ai/mastra/commit/2ded35cb0c97b26f641a9eb9a5747d32164d45c9), [`fe8c11d`](https://github.com/mastra-ai/mastra/commit/fe8c11d479b7e75bda64f311cadbaf8631782df0)]:
+  - @mastra/core@1.80.0-alpha.3
+  - @mastra/memory@1.39.1-alpha.1
+  - @mastra/client-js@1.57.0-alpha.3
+
 ## 1.15.1-alpha.2
 
 ### Patch Changes
