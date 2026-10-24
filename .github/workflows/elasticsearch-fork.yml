@@ -7,6 +7,7 @@ on:
       - 'stores/elasticsearch/**'
       - 'stores/_test-utils/**'
       - 'packages/core/**'
+      - 'packages/memory/**'
       - 'packages/schema-compat/**'
       - '.github/elasticsearch/**'
       - '.github/workflows/elasticsearch-fork.yml'
@@ -66,7 +67,8 @@ jobs:
           echo "npm_config_cache=$task_directory/cache/npm" >> "$GITHUB_ENV"
           echo "NODE_COMPILE_CACHE=$task_directory/cache/node" >> "$GITHUB_ENV"
       - name: Install adapter and test dependencies
-        run: pnpm --filter @mastra/elasticsearch... --filter @internal/storage-test-utils... install --frozen-lockfile
+        # The shared storage suite imports the memory token counter from its source.
+        run: pnpm --filter @mastra/elasticsearch... --filter @internal/storage-test-utils... --filter @mastra/memory... install --frozen-lockfile
       - name: Build adapter dependency closure
         run: pnpm --config.verify-deps-before-run=false exec turbo run build --filter=@mastra/elasticsearch --filter=@internal/storage-test-utils --cache-dir="$TMPDIR/turbo"
       - name: Check adapter
