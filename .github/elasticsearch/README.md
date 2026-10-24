@@ -9,6 +9,10 @@ The workflow runs on relevant pushes to `digows/mastra` main or manual dispatch.
 It installs and builds the adapter's workspace dependency closure, checks the
 adapter, and runs its package suite against an isolated Elasticsearch 9.4.3.
 It does not call the upstream workflows or build/test the entire monorepo.
+After the explicit frozen-lockfile install, commands disable pnpm 11's automatic
+dependency reinstall. In particular, version stamping must not trigger an
+unfiltered install of unrelated workspaces. Missing build dependencies still fail
+the build; type, lint, formatting, and conformance checks remain required.
 
 Packaging stamps the full source commit into `gitHead` and a unique prerelease
 version into both the compiled provider and package manifest. Source must be

@@ -68,16 +68,16 @@ jobs:
       - name: Install adapter and test dependencies
         run: pnpm --filter @mastra/elasticsearch... --filter @internal/storage-test-utils... install --frozen-lockfile
       - name: Build adapter dependency closure
-        run: pnpm exec turbo run build --filter=@mastra/elasticsearch --filter=@internal/storage-test-utils --cache-dir="$TMPDIR/turbo"
+        run: pnpm --config.verify-deps-before-run=false exec turbo run build --filter=@mastra/elasticsearch --filter=@internal/storage-test-utils --cache-dir="$TMPDIR/turbo"
       - name: Check adapter
         working-directory: stores/elasticsearch
         run: |
-          pnpm exec tsc --noEmit -p tsconfig.json
-          pnpm exec oxlint --type-aware src
-          pnpm exec oxfmt --check src
+          pnpm --config.verify-deps-before-run=false exec tsc --noEmit -p tsconfig.json
+          pnpm --config.verify-deps-before-run=false exec oxlint --type-aware src
+          pnpm --config.verify-deps-before-run=false exec oxfmt --check src
       - name: Run adapter conformance and regression tests
         working-directory: stores/elasticsearch
-        run: pnpm exec vitest run --reporter verbose
+        run: pnpm --config.verify-deps-before-run=false exec vitest run --reporter verbose
       - name: Package versioned fork
         run: node .github/elasticsearch/package.mjs "$TMPDIR/artifacts"
       - name: Qualify the installed tarball with released Mastra

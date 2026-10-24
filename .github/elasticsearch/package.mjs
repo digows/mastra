@@ -26,8 +26,13 @@ await mkdir(outputDirectory, { recursive: true });
 try {
   // Rebuild after stamping so the bundled provider version and package manifest agree.
   await writeFile(manifestPath, `${JSON.stringify({ ...manifest, version, gitHead: revision }, null, 2)}\n`);
-  execFileSync('pnpm', ['run', 'build:lib'], { cwd: packageDirectory, stdio: 'inherit' });
-  execFileSync('pnpm', ['pack', '--pack-destination', outputDirectory], {
+  // Dependencies were explicitly installed from the frozen lockfile. Stamping must not
+  // trigger pnpm 11's automatic, unfiltered workspace reinstall before running scripts.
+  execFileSync('pnpm', ['--config.verify-deps-before-run=false', 'run', 'build:lib'], {
+    cwd: packageDirectory,
+    stdio: 'inherit',
+  });
+  execFileSync('pnpm', ['--config.verify-deps-before-run=false', 'pack', '--pack-destination', outputDirectory], {
     cwd: packageDirectory,
     stdio: 'inherit',
   });
