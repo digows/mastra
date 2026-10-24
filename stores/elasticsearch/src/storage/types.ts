@@ -19,6 +19,18 @@ export type ElasticSearchConfig = {
    * You must call `storage.init()` explicitly before use.
    */
   disableInit?: boolean;
+  /**
+   * Prepended to every index the store creates, so several applications or environments can share one
+   * cluster without seeing each other's data. Use lowercase letters, digits, `_`, `-`, or `.`, starting with
+   * a letter or digit. Defaults to no prefix, which keeps the plain `mastra_*` index names.
+   *
+   * @example
+   * ```typescript
+   * const store = new ElasticSearchStore({ id: 'my-store', url, indexPrefix: 'staging_' });
+   * // Indexes: staging_mastra_threads, staging_mastra_observability_spans, ...
+   * ```
+   */
+  indexPrefix?: string;
 } & (
   | {
       /**

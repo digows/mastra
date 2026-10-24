@@ -41,7 +41,7 @@ export class MemoryElasticSearch extends MemoryStorage {
 
   constructor(config: ElasticSearchDomainConfig) {
     super();
-    this.db = new ElasticSearchDB({ client: config.client });
+    this.db = new ElasticSearchDB({ client: config.client, indexPrefix: config.indexPrefix });
   }
 
   public async dangerouslyClearAll(): Promise<void> {

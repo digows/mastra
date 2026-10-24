@@ -31,6 +31,7 @@ Metrics require an analytics-capable observability store:
 - **DuckDB** through `@mastra/duckdb` is recommended for local development.
 - **ClickHouse** through `@mastra/clickhouse` is recommended for high-volume production workloads.
 - **PostgresStoreVNext** supports metrics when its observability domain is enabled.
+- **Elasticsearch** through `@mastra/elasticsearch` supports metrics with its `ElasticSearchStore`.
 - **In-memory storage** supports metrics, but its data is lost when the process restarts.
 - **Google Cloud Spanner** disables metrics by default. Set `disableMetrics: false` only for light workloads, or route metrics to a dedicated OLAP store.
 

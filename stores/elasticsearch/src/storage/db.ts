@@ -20,10 +20,17 @@ const SEARCH_PAGE_SIZE = 1000;
  */
 export class ElasticSearchDB {
   private client: ElasticSearchClient;
+  private indexPrefix: string;
   private ensuredIndexes = new Set<string>();
 
-  constructor({ client }: { client: ElasticSearchClient }) {
+  constructor({ client, indexPrefix }: ElasticSearchDomainConfig) {
     this.client = client;
+    this.indexPrefix = validateIndexPrefix(indexPrefix);
+  }
+
+  /** Index that stores `tableName`, with the store's optional index prefix. */
+  indexName(tableName: TABLE_NAMES): string {
+    return `${this.indexPrefix}${tableName}`;
   }
 
   getClient(): ElasticSearchClient {
@@ -35,10 +42,10 @@ export class ElasticSearchDB {
       return;
     }
     try {
-      const exists = await this.client.indices.exists({ index: tableName });
+      const exists = await this.client.indices.exists({ index: this.indexName(tableName) });
       if (!exists) {
         await this.client.indices.create({
-          index: tableName,
+          index: this.indexName(tableName),
           mappings: {
             dynamic: false,
             properties: {
@@ -84,7 +91,7 @@ export class ElasticSearchDB {
     await this.ensureIndex(tableName);
     try {
       await this.client.index({
-        index: tableName,
+        index: this.indexName(tableName),
         id: key,
         document: { key, doc: JSON.stringify(value) },
         refresh: true,
@@ -115,7 +122,7 @@ export class ElasticSearchDB {
     await this.ensureIndex(tableName);
     try {
       const operations = entries.flatMap(({ key, value }) => [
-        { index: { _index: tableName, _id: key } },
+        { index: { _index: this.indexName(tableName), _id: key } },
         { key, doc: JSON.stringify(value) },
       ]);
       const response = await this.client.bulk({ operations, refresh: true });
@@ -144,7 +151,10 @@ export class ElasticSearchDB {
   async getByKey<R>({ tableName, key }: { tableName: TABLE_NAMES; key: string }): Promise<R | null> {
     await this.ensureIndex(tableName);
     try {
-      const response = await this.client.get<{ doc: string }>({ index: tableName, id: key }, { ignore: [404] });
+      const response = await this.client.get<{ doc: string }>(
+        { index: this.indexName(tableName), id: key },
+        { ignore: [404] },
+      );
       if (!response.found || !response._source?.doc) {
         return null;
       }
@@ -189,7 +199,7 @@ export class ElasticSearchDB {
 
       while (true) {
         const response = await this.client.search<{ key: string; doc: string }>({
-          index: tableName,
+          index: this.indexName(tableName),
           size: SEARCH_PAGE_SIZE,
           query: keyPrefix ? { prefix: { key: keyPrefix } } : { match_all: {} },
           sort: [{ key: 'asc' }],
@@ -226,7 +236,7 @@ export class ElasticSearchDB {
   async delete({ tableName, key }: { tableName: TABLE_NAMES; key: string }): Promise<void> {
     await this.ensureIndex(tableName);
     try {
-      await this.client.delete({ index: tableName, id: key, refresh: true }, { ignore: [404] });
+      await this.client.delete({ index: this.indexName(tableName), id: key, refresh: true }, { ignore: [404] });
     } catch (error) {
       throw new MastraError(
         {
@@ -247,7 +257,7 @@ export class ElasticSearchDB {
     await this.ensureIndex(tableName);
     try {
       await this.client.deleteByQuery({
-        index: tableName,
+        index: this.indexName(tableName),
         query: { terms: { key: keys } },
         refresh: true,
         conflicts: 'proceed',
@@ -269,7 +279,7 @@ export class ElasticSearchDB {
     await this.ensureIndex(tableName);
     try {
       await this.client.deleteByQuery({
-        index: tableName,
+        index: this.indexName(tableName),
         query: keyPrefix ? { prefix: { key: keyPrefix } } : { match_all: {} },
         refresh: true,
         conflicts: 'proceed',
@@ -290,4 +300,29 @@ export class ElasticSearchDB {
 
 export interface ElasticSearchDomainConfig {
   client: ElasticSearchClient;
+  /** Prepended to every index name the domain creates or reads. Defaults to no prefix. */
+  indexPrefix?: string;
+}
+
+/**
+ * Elasticsearch index names must be lowercase and can't contain spaces or any of `\ / * ? " < > | , # :`.
+ * A prefix also can't start with `-`, `_`, or `+`, which Elasticsearch rejects, or `.`, which it reserves
+ * for hidden and system indices.
+ */
+const INDEX_PREFIX_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+
+/** Returns the prefix to prepend to index names, rejecting one Elasticsearch would refuse. */
+export function validateIndexPrefix(indexPrefix: string | undefined): string {
+  if (indexPrefix === undefined || indexPrefix === '') {
+    return '';
+  }
+  if (!INDEX_PREFIX_PATTERN.test(indexPrefix)) {
+    throw new MastraError({
+      id: 'ELASTIC_SEARCH_STORE_INVALID_INDEX_PREFIX',
+      domain: ErrorDomain.STORAGE,
+      category: ErrorCategory.USER,
+      text: `Invalid indexPrefix "${indexPrefix}": use lowercase letters, digits, "_", "-", or ".", starting with a letter or digit.`,
+    });
+  }
+  return indexPrefix;
 }

@@ -176,11 +176,12 @@ Storage determines which observability signals persist, which queries are availa
 
 ### Signal support
 
-Storage support depends on the signal and workload. `MastraStorageExporter` can persist traces to ClickHouse, PostgreSQL, MSSQL, MongoDB, and LibSQL. Metrics require an analytics-capable store:
+Storage support depends on the signal and workload. `MastraStorageExporter` can persist traces to ClickHouse, PostgreSQL, MSSQL, MongoDB, Elasticsearch, and LibSQL. Metrics require an analytics-capable store:
 
 - DuckDB: Recommended for local testing and development.
 - ClickHouse: Recommended for high-volume production observability.
 - `PostgresStoreVNext`: Supports metrics when the observability domain is enabled. Always provide a time range to avoid full partition scans.
+- Elasticsearch: Supports metrics through `ElasticSearchStore` when you already run an Elasticsearch cluster.
 - Mastra platform: Use `MastraPlatformExporter` for hosted observability without managing the backend yourself.
 
 For the complete provider list and supported tracing strategies, see [Mastra Storage exporter](/docs/observability/integrations/exporters/mastra-storage#storage-provider-support). Use composite storage to route the `observability` domain separately when your primary store doesn't support observability or when the workload needs independent scaling.

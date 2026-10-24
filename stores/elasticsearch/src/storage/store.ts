@@ -5,6 +5,7 @@ import type { StorageDomains } from '@mastra/core/storage';
 
 import packageJson from '../../package.json';
 import { MemoryElasticSearch } from './domains/memory';
+import { ObservabilityElasticSearch } from './domains/observability';
 import { ScoresElasticSearch } from './domains/scores';
 import { WorkflowsElasticSearch } from './domains/workflows';
 import type { ElasticSearchConfig } from './types';
@@ -12,7 +13,7 @@ import type { ElasticSearchConfig } from './types';
 /**
  * ElasticSearch storage adapter for Mastra.
  *
- * Implements the memory, workflows, and scores storage domains on top of
+ * Implements the memory, workflows, scores, and observability storage domains on top of
  * ElasticSearch. Shares the same connection config surface as
  * `ElasticSearchVector`, so both can reuse one client or connection config.
  *
@@ -68,10 +69,12 @@ export class ElasticSearchStore extends MastraStorage {
       });
     }
 
+    const domainConfig = { client: this.client, indexPrefix: config.indexPrefix };
     this.stores = {
-      memory: new MemoryElasticSearch({ client: this.client }),
-      workflows: new WorkflowsElasticSearch({ client: this.client }),
-      scores: new ScoresElasticSearch({ client: this.client }),
+      memory: new MemoryElasticSearch(domainConfig),
+      observability: new ObservabilityElasticSearch(domainConfig),
+      workflows: new WorkflowsElasticSearch(domainConfig),
+      scores: new ScoresElasticSearch(domainConfig),
     };
   }
 

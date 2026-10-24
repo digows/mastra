@@ -1,6 +1,6 @@
 ---
 title: "Elasticsearch | Database"
-description: "Store Mastra agent memory, workflow snapshots, and scores in Elasticsearch with URL, authentication, or shared client connection configuration."
+description: "Store Mastra agent memory, workflow snapshots, scores, and observability data (traces, logs, metrics, scores, and feedback) in Elasticsearch with URL, authentication, or shared client connection configuration."
 packages:
   - "@mastra/core"
   - "@mastra/memory"
@@ -9,9 +9,9 @@ packages:
 
 # Elasticsearch
 
-The Elasticsearch storage implementation provides agent memory, workflow snapshot, and score storage on top of an Elasticsearch cluster using the official [`@elastic/elasticsearch`](https://github.com/elastic/elasticsearch-js) client. It shares the same connection configuration as `ElasticSearchVector`, so a single cluster (and even a single client instance) can serve both agent memory and semantic recall.
+The Elasticsearch storage implementation provides agent memory, workflow snapshot, score, and observability storage on top of an Elasticsearch cluster using the official [`@elastic/elasticsearch`](https://github.com/elastic/elasticsearch-js) client. It shares the same connection configuration as `ElasticSearchVector`, so a single cluster (and even a single client instance) can serve agent memory, semantic recall, and the traces, logs, and metrics you inspect in Studio.
 
-`ElasticSearchStore` currently implements the `memory`, `workflows`, and `scores` storage domains.
+`ElasticSearchStore` implements the `memory`, `workflows`, `scores`, and `observability` storage domains.
 
 ## Installation
 
@@ -101,6 +101,13 @@ When you provide your own client, `storage.close()` does not close it — you re
     description: 'Disable automatic initialization; call `storage.init()` explicitly before use',
     isOptional: true,
   },
+  {
+    name: 'indexPrefix',
+    type: 'string',
+    description:
+      'Prefix for every index the store creates, so several applications or environments can share one cluster (for example `staging_`). Use lowercase letters, digits, `_`, `-`, or `.`, starting with a letter or digit. Defaults to no prefix',
+    isOptional: true,
+  },
 ]}
 />
 
@@ -108,11 +115,66 @@ When you provide your own client, `storage.close()` does not close it — you re
 You must provide either `url` or `client`. These options are mutually exclusive.
 :::
 
+## Observability
+
+`ElasticSearchStore` persists the traces, logs, metrics, scores, and feedback that `MastraStorageExporter` produces, and serves them through the observability APIs that Studio reads. Configure the exporter with the store as your Mastra storage:
+
+```typescript title="src/mastra/index.ts"
+import { Mastra } from '@mastra/core'
+import { ElasticSearchStore } from '@mastra/elasticsearch'
+import { Observability, MastraStorageExporter } from '@mastra/observability'
+
+export const mastra = new Mastra({
+  storage: new ElasticSearchStore({
+    id: 'elasticsearch-storage',
+    url: process.env.ELASTICSEARCH_URL!,
+    auth: { apiKey: process.env.ELASTICSEARCH_API_KEY! },
+  }),
+  observability: new Observability({
+    configs: {
+      default: {
+        serviceName: 'mastra',
+        exporters: [new MastraStorageExporter()],
+      },
+    },
+  }),
+})
+```
+
+To keep observability in its own cluster, pass `await store.getStore('observability')` as the `observability` domain of a [composite store](/reference/storage/composite).
+
+`MastraStorageExporter` uses the `batch-with-updates` strategy with Elasticsearch, so in-progress traces are visible and update as their spans finish. The `realtime` strategy is also supported.
+
+### Supported capabilities
+
+- Traces, spans, branches, and their filters, including metadata and scope filters
+- Logs, scores, and feedback, including feedback review status
+- Metrics with aggregates, breakdowns, time series, and percentiles, grouped by metric fields or label keys
+- Filter discovery for entity types and names, service names, environments, tags, metric names, and metric labels
+- Delta polling for live views when the `observability-delta-polling` core feature is enabled
+- Trace deletion that also removes the logs, metrics, scores, and feedback linked to the deleted traces, optionally restricted to an organization or resource
+
+The trace query, span query, trace aggregate, span aggregate, and thread query APIs aren't implemented. The store doesn't declare them, so Studio's capability check reports them as unavailable for Elasticsearch.
+
+### Query behavior
+
+- The `hasChildError` trace filter matches traces where any span failed, including the root span.
+- Percentiles use Elasticsearch's approximate percentile aggregation. `count_distinct` uses Elasticsearch's `cardinality` aggregation, which is close to exact up to 40,000 distinct values and approximate above.
+- List pages reach the first 10,000 results of a query. Narrow the filters or the time range to page through older records.
+
+### Delta polling
+
+Each record gets a cursor when it's first written. Retried writes and later updates keep the original cursor, so live views don't show a record twice. Writers hold their cursor range while they write, and readers wait for in-flight writes before moving past them. If an application stops in the middle of a write, live views wait up to one minute before moving on. A writer that was only slower than that publishes its records again under a new cursor when it finishes, so live views still show them, possibly a second time.
+
 ## Additional Notes
 
 ### Index Structure
 
 Each Mastra storage table maps to one Elasticsearch index of the same name (for example `mastra_threads`, `mastra_messages`, `mastra_workflow_snapshot`, `mastra_scorers`). Records are stored as opaque JSON documents with a keyword `key` field, so no index mappings need to be managed manually — indexes are created on first use.
+
+The observability domain uses one index per signal: `mastra_observability_spans`, `mastra_observability_logs`, `mastra_observability_metrics`, `mastra_observability_scores`, `mastra_observability_feedback`, and `mastra_observability_state` for delta-polling cursors. Fields used by filters, sorting, and aggregations are mapped explicitly; payloads such as span input and output, log data, and metric labels are stored without being indexed, so arbitrary attributes never grow the mapping.
+
+With `indexPrefix`, every index name starts with the prefix, for example `staging_mastra_threads` and `staging_mastra_observability_spans`.
 
 ### Consistency
 
