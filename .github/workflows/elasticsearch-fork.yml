@@ -1,0 +1,105 @@
+name: Elasticsearch fork package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'stores/elasticsearch/**'
+      - 'stores/_test-utils/**'
+      - 'packages/core/**'
+      - 'packages/schema-compat/**'
+      - '.github/elasticsearch/**'
+      - '.github/workflows/elasticsearch-fork.yml'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'turbo.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elasticsearch-fork-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.repository == 'digows/mastra'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:9.4.3
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: 'false'
+          ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl -fsS http://localhost:9200/_cluster/health?wait_for_status=yellow"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+    env:
+      ELASTICSEARCH_URL: http://127.0.0.1:9200
+      NODE_OPTIONS: --max-old-space-size=6144
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@e8d4307400f9427dba7cb98e488d6ab85f1cec5f
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@04be95cf3511ea51ebf9f224ddfb99cc7ab87cd4
+        with:
+          node-version: 26.8.1
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+        with:
+          run_install: false
+      - name: Configure task directories
+        shell: bash
+        run: |
+          task_directory="$(mktemp -d "$RUNNER_TEMP/elasticsearch-XXXXXX")"
+          mkdir -p "$task_directory/cache"
+          echo "TMPDIR=$task_directory" >> "$GITHUB_ENV"
+          echo "XDG_CACHE_HOME=$task_directory/cache" >> "$GITHUB_ENV"
+          echo "npm_config_cache=$task_directory/cache/npm" >> "$GITHUB_ENV"
+          echo "NODE_COMPILE_CACHE=$task_directory/cache/node" >> "$GITHUB_ENV"
+      - name: Install adapter and test dependencies
+        run: pnpm --filter @mastra/elasticsearch... --filter @internal/storage-test-utils... install --frozen-lockfile
+      - name: Build adapter dependency closure
+        run: pnpm exec turbo run build --filter=@mastra/elasticsearch --filter=@internal/storage-test-utils --cache-dir="$TMPDIR/turbo"
+      - name: Check adapter
+        working-directory: stores/elasticsearch
+        run: |
+          pnpm exec tsc --noEmit -p tsconfig.json
+          pnpm exec oxlint --type-aware src
+          pnpm exec oxfmt --check src
+      - name: Run adapter conformance and regression tests
+        working-directory: stores/elasticsearch
+        run: pnpm exec vitest run --reporter verbose
+      - name: Package versioned fork
+        run: node .github/elasticsearch/package.mjs "$TMPDIR/artifacts"
+      - name: Qualify the installed tarball with released Mastra
+        run: |
+          package_path="$(node -p "require(process.env.TMPDIR + '/artifacts/build-info.json').filename")"
+          node .github/elasticsearch/verify-package.mjs "$TMPDIR/artifacts/$package_path" "$TMPDIR/consumer"
+          cp "$TMPDIR/consumer/result.json" "$TMPDIR/artifacts/qualification.json"
+      - name: Upload qualified package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: elasticsearch-fork-${{ github.sha }}
+          path: ${{ env.TMPDIR }}/artifacts/
+          if-no-files-found: error
+      - name: Publish immutable fork release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="elasticsearch-digows-${GITHUB_SHA}"
+          gh release create "$tag" "$TMPDIR"/artifacts/* \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Elasticsearch adapter ${GITHUB_SHA:0:12}" \
+            --notes "Fork artifact for commit $GITHUB_SHA. Qualified with @mastra/core 1.79.0 and Elasticsearch 9.4.3. See build-info.json and SHA256SUMS."
+    permissions:
+      contents: write
